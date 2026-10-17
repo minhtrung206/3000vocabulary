@@ -1,1 +1,897 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Oxford 3000 Cloud Pro - PWA App</title>
+  
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Oxford Cloud">
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='100%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%234f46e5'/%3E%3Cstop offset='100%25' stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='115' fill='url(%23g)'/%3E%3Cpath fill='%23fff' d='M256 128L96 208l160 80 128-64v96h32V208L256 128zm-96 138.8v69.2c0 35.3 43 64 96 64s96-28.7 96-64v-69.2l-96 48-96-48z'/%3E%3C/svg%3E">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    * { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; padding-top: env(safe-area-inset-top); padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); overscroll-behavior-y: none; }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .perspective-1000 { perspective: 1000px; }
+    .transform-style-preserve-3d { transform-style: preserve-3d; }
+    .backface-hidden { backface-visibility: hidden; }
+    .rotate-y-180 { transform: rotateY(180deg); }
+    .touch-press:active { transform: scale(0.96); transition: transform 0.08s ease; }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    .animate-shake { animation: shake 0.25s ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-800">
 
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex flex-col items-center justify-center p-4 text-white">
+    <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-xl shadow-xl animate-bounce mb-3">
+      <i class="fa-solid fa-cloud-arrow-down"></i>
+    </div>
+    <h3 class="text-sm font-extrabold tracking-wide">Đang đồng bộ từ Google Sheets...</h3>
+    <p class="text-[11px] text-slate-300 mt-1">Vui lòng đợi trong giây lát</p>
+  </div>
+
+  <!-- Top Header Bar -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-6xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-sky-500 flex items-center justify-center text-white shadow-md shadow-indigo-100 flex-shrink-0">
+          <i class="fa-solid fa-graduation-cap text-base sm:text-lg"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">Oxford Cloud Pro</h1>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              75 Từ
+            </span>
+          </div>
+          <p class="text-[10px] sm:text-xs text-slate-500 truncate" id="sync-status-text">Đã đồng bộ Google Cloud</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-[11px] font-semibold flex-shrink-0">
+        <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg flex items-center gap-1" title="Đã học">
+          <i class="fa-solid fa-circle-check text-[10px]"></i>
+          <span id="top-learned-count">0</span>
+        </div>
+        <div class="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg flex items-center gap-1" title="Từ khó">
+          <i class="fa-solid fa-star text-amber-500 text-[10px]"></i>
+          <span id="top-hard-count">0</span>
+        </div>
+        <button onclick="fetchUserDataFromCloud()" class="bg-indigo-600 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs touch-press" title="Đồng bộ thủ công">
+          <i class="fa-solid fa-rotate text-[10px]"></i>
+          <span class="hidden xs:inline">Sync</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hidden md:flex max-w-6xl mx-auto px-4 border-t border-slate-100 gap-2">
+      <button onclick="switchMainView('daily')" id="btn-nav-daily" class="nav-module-btn px-4 py-2.5 text-xs font-bold border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-calendar-day"></i>
+        <span>1. Bài Học Hàng Ngày</span>
+      </button>
+      <button onclick="switchMainView('notebook')" id="btn-nav-notebook" class="nav-module-btn px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-book-bookmark"></i>
+        <span>2. Sổ Tay 3 Tầng</span>
+      </button>
+      <button onclick="switchMainView('minigame')" id="btn-nav-minigame" class="nav-module-btn px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-bolt"></i>
+        <span>3. Mini Game Typing</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-3 sm:px-4 py-3.5 sm:py-6 w-full flex-1">
+
+    <!-- MODULE 1: BÀI HỌC HÀNG NGÀY -->
+    <div id="module-daily" class="space-y-3.5 sm:space-y-5">
+      
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+            <i class="fa-solid fa-fire text-amber-500 mr-1"></i>Cloud Sync
+          </span>
+          <div>
+            <h2 class="text-xs sm:text-sm font-extrabold text-slate-900">Kho Từ Vựng Trực Tuyến</h2>
+            <p class="text-[10px] sm:text-xs text-slate-500">Đọc ghi trực tiếp từ Google Sheets</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-1 p-1 bg-slate-200/75 rounded-2xl">
+        <button onclick="switchDailySubTab('dtab1')" id="btn-dtab1" class="dtab-btn py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl bg-white text-indigo-600 shadow-xs flex items-center justify-center gap-1 touch-press">
+          <i class="fa-regular fa-clone"></i> <span class="truncate">Flashcard</span>
+        </button>
+        <button onclick="switchDailySubTab('dtab2')" id="btn-dtab2" class="dtab-btn py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl text-slate-600 flex items-center justify-center gap-1 touch-press">
+          <i class="fa-solid fa-list-check"></i> <span class="truncate">Quiz</span>
+        </button>
+        <button onclick="switchDailySubTab('dtab3')" id="btn-dtab3" class="dtab-btn py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl text-slate-600 flex items-center justify-center gap-1 touch-press">
+          <i class="fa-solid fa-keyboard"></i> <span class="truncate">Typing</span>
+        </button>
+        <button onclick="switchDailySubTab('dtab4')" id="btn-dtab4" class="dtab-btn py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl text-slate-600 flex items-center justify-center gap-1 touch-press">
+          <i class="fa-solid fa-magnifying-glass"></i> <span class="truncate">Tra Cứu</span>
+        </button>
+      </div>
+
+      <!-- Flashcard Subtab -->
+      <div id="view-dtab1" class="space-y-4">
+        <div class="flex items-center justify-between text-xs px-1">
+          <span class="text-[11px] font-semibold text-slate-500">
+            <i class="fa-solid fa-hand-pointer text-indigo-500 mr-1"></i>Chạm để lật • Vuốt trái/phải đổi thẻ
+          </span>
+          <button onclick="toggleFcAutoAudio()" id="btn-fc-toggle-sound" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 touch-press">
+            <i class="fa-solid fa-volume-high text-indigo-600" id="icon-fc-sound"></i>
+            <strong id="label-fc-sound">BẬT</strong>
+          </button>
+        </div>
+
+        <div class="w-full max-w-sm sm:max-w-md mx-auto perspective-1000" id="fc-swipe-area">
+          <div id="flashcard" onclick="flipCard()" class="relative w-full h-[380px] sm:h-[410px] rounded-3xl cursor-pointer transition-transform duration-500 transform-style-preserve-3d shadow-xl shadow-indigo-100/70 border-2 border-indigo-100 bg-white select-none">
+            
+            <!-- Front Face -->
+            <div class="absolute inset-0 w-full h-full p-5 sm:p-6 rounded-3xl backface-hidden flex flex-col justify-between bg-gradient-to-b from-white via-indigo-50/20 to-indigo-50/60">
+              <div class="w-full flex items-center justify-between text-xs">
+                <span class="font-mono text-slate-400 font-bold" id="fc-id">#1</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800" id="fc-category">Chủ đề</span>
+                  <button onclick="toggleHardFromFlashcard(event)" id="fc-star-btn" class="w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs touch-press">
+                    <i class="fa-solid fa-star"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="text-center space-y-2.5 my-auto">
+                <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight" id="fc-word">Loading...</h3>
+                <div class="flex items-center justify-center gap-2">
+                  <span class="font-mono text-xs sm:text-sm text-indigo-600 font-semibold" id="fc-phonetic">/.../</span>
+                  <button onclick="speakWord(event)" title="Nghe lại" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 active:bg-indigo-200 flex items-center justify-center transition">
+                    <i class="fa-solid fa-volume-high text-xs"></i>
+                  </button>
+                </div>
+                <span class="inline-block text-[11px] font-semibold text-slate-400 italic" id="fc-pos">(noun)</span>
+                
+                <div class="p-3 sm:p-3.5 rounded-2xl bg-white/95 border border-indigo-100 shadow-xs text-left">
+                  <div class="flex items-center gap-1.5 text-indigo-600 font-bold text-[10px] mb-1">
+                    <i class="fa-solid fa-globe"></i>
+                    <span>English Clue:</span>
+                  </div>
+                  <p class="text-xs text-slate-700 leading-relaxed italic line-clamp-4" id="fc-front-desc">...</p>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                <span><i class="fa-solid fa-chevron-left text-[9px]"></i> Trước</span>
+                <span class="text-indigo-500 font-semibold"><i class="fa-solid fa-arrows-rotate"></i> Chạm lật</span>
+                <span>Tiếp <i class="fa-solid fa-chevron-right text-[9px]"></i></span>
+              </div>
+            </div>
+
+            <!-- Back Face -->
+            <div class="absolute inset-0 w-full h-full p-5 sm:p-6 rounded-3xl backface-hidden rotate-y-180 flex flex-col justify-between bg-gradient-to-tr from-indigo-950 via-slate-900 to-indigo-900 text-white">
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="text-indigo-300 font-mono font-bold" id="fc-back-word">Word</span>
+                  <button onclick="speakWord(event)" title="Phát âm" class="w-6 h-6 rounded-full bg-white/20 text-indigo-200 active:bg-white/30 flex items-center justify-center text-[10px] transition">
+                    <i class="fa-solid fa-volume-high"></i>
+                  </button>
+                </div>
+                <span class="text-slate-400 text-[10px]">Mặt sau (Tiếng Việt)</span>
+              </div>
+
+              <div class="space-y-2.5 my-auto">
+                <div>
+                  <p class="text-[9px] text-indigo-300 uppercase font-bold tracking-wider">Định nghĩa tiếng Việt</p>
+                  <h4 class="text-2xl sm:text-3xl font-extrabold text-white mt-0.5" id="fc-vi">Nghĩa</h4>
+                </div>
+
+                <div class="p-2.5 sm:p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs space-y-1">
+                  <div class="flex items-center gap-1 text-sky-300 font-bold text-[10px]">
+                    <i class="fa-solid fa-language"></i>
+                    <span>Giải thích tiếng Việt:</span>
+                  </div>
+                  <p class="text-slate-200 text-xs leading-relaxed line-clamp-3" id="fc-desc">...</p>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-amber-500/20 border border-amber-400/30 text-xs space-y-1">
+                  <div class="flex items-center gap-1 text-amber-300 font-bold text-[10px]">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Mẹo nhớ:</span>
+                  </div>
+                  <p class="text-amber-100 text-[11px] leading-relaxed line-clamp-2" id="fc-tip">...</p>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center text-[10px] text-indigo-300">
+                <span id="fc-index-info">Thẻ 1 / 1</span>
+                <span class="flex items-center gap-1"><i class="fa-solid fa-hand-pointer"></i> Chạm để lật lại</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center gap-2.5 max-w-sm mx-auto">
+          <button onclick="prevCard()" class="flex-1 py-3 rounded-2xl border border-slate-200 bg-white active:bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs touch-press">
+            <i class="fa-solid fa-arrow-left"></i> Thẻ trước
+          </button>
+          <button onclick="shuffleCards()" title="Xáo trộn thẻ" class="w-12 h-12 rounded-2xl border border-slate-200 bg-white active:bg-slate-100 text-slate-700 flex items-center justify-center shadow-xs touch-press flex-shrink-0">
+            <i class="fa-solid fa-shuffle text-sm"></i>
+          </button>
+          <button onclick="nextCard()" class="flex-1 py-3 rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-indigo-100 touch-press">
+            Tiếp theo <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quiz Subtab -->
+      <div id="view-dtab2" class="hidden space-y-3.5">
+        <div class="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 text-white flex items-center justify-between gap-2 shadow-xs">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold">Trắc Nghiệm Phản Xạ</h3>
+            <p class="text-[11px] text-indigo-100 mt-0.5">Lấy trực tiếp từ cơ sở dữ liệu Sheets.</p>
+          </div>
+          <button onclick="resetQuiz()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white/20 active:bg-white/30 backdrop-blur-sm transition touch-press flex-shrink-0">
+            <i class="fa-solid fa-rotate-left mr-0.5"></i> Làm lại
+          </button>
+        </div>
+        <div id="quiz-container" class="space-y-3"></div>
+      </div>
+
+      <!-- Typing Subtab -->
+      <div id="view-dtab3" class="hidden space-y-3.5">
+        <div id="typing-box-container" class="bg-white p-4 sm:p-6 rounded-3xl border-2 border-purple-200 shadow-xl shadow-purple-50/50 max-w-xl mx-auto space-y-3.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 font-mono" id="t-counter">
+              Từ 1 / 1
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="prevTypingWord()" title="Từ trước" class="w-8 h-8 rounded-lg border border-slate-200 active:bg-slate-100 flex items-center justify-center text-slate-600 touch-press">
+                <i class="fa-solid fa-arrow-left text-xs"></i>
+              </button>
+              <button onclick="nextTypingWord()" title="Từ tiếp theo" class="w-8 h-8 rounded-lg border border-slate-200 active:bg-slate-100 flex items-center justify-center text-slate-600 touch-press">
+                <i class="fa-solid fa-arrow-right text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="text-center space-y-2" id="typing-prompt-anchor">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-100 text-purple-800" id="t-group-badge">Kho Từ Vựng Cloud</span>
+              <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-0.5 tracking-tight" id="t-vietnamese">...</h3>
+            </div>
+
+            <div class="p-3 sm:p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 text-left space-y-1.5">
+              <p class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed italic" id="t-desc-en">...</p>
+              <div class="border-t border-indigo-200/60"></div>
+              <p class="text-xs sm:text-sm text-indigo-950 font-normal leading-relaxed" id="t-visual-desc">...</p>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 pt-0.5 min-h-[34px]">
+              <button onclick="revealTypingHint()" id="btn-hint-toggle" class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-600 transition flex items-center gap-1.5 touch-press">
+                <i class="fa-regular fa-lightbulb text-amber-500"></i> Xem gợi ý
+              </button>
+              <span id="t-hint" class="hidden text-xs text-slate-700 font-mono font-bold bg-amber-50 px-3 py-1.5 rounded-xl border border-dashed border-amber-300">...</span>
+              <button onclick="speakTypingWord()" title="Nghe phát âm chuẩn" class="w-8 h-8 rounded-xl bg-indigo-50 active:bg-indigo-100 text-indigo-600 flex items-center justify-center transition touch-press">
+                <i class="fa-solid fa-volume-high text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="relative flex items-center gap-1.5">
+              <div class="relative flex-1">
+                <input 
+                  type="text" 
+                  id="t-input" 
+                  inputmode="text"
+                  enterkeyhint="next"
+                  onfocus="scrollTypingIntoView()"
+                  oninput="handleTyping(this.value)" 
+                  onkeydown="handleTypingKeyDown(event)"
+                  placeholder="Gõ từ tiếng Anh..." 
+                  autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                  class="w-full text-center text-lg sm:text-xl font-mono-code font-bold tracking-widest py-3 px-4 border-2 border-slate-300 rounded-2xl focus:border-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-100 transition shadow-inner">
+                <div id="t-feedback-icon" class="absolute right-3.5 top-3 hidden"></div>
+              </div>
+              <button id="btn-mobile-next" onclick="handleMobileEnterAction()" class="hidden px-4 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-md flex-shrink-0 items-center gap-1 touch-press">
+                <span>Tiếp</span> <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] px-1 text-slate-400">
+              <span id="t-char-count" class="font-mono">0 ký tự</span>
+              <span>Nhấn <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] text-slate-700 border border-slate-200 font-bold">Enter ↵</kbd></span>
+            </div>
+          </div>
+
+          <div id="t-detail-card" class="hidden p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-2 text-left">
+            <div class="flex items-center justify-between">
+              <div class="flex items-baseline gap-2">
+                <span class="text-base font-bold text-purple-900" id="t-target-word">...</span>
+                <span class="text-xs font-mono text-purple-700" id="t-phonetic">/.../</span>
+              </div>
+              <button onclick="speakTypingWord()" title="Nghe lại" class="w-6 h-6 rounded-full bg-white text-purple-700 flex items-center justify-center text-xs shadow-xs touch-press">
+                <i class="fa-solid fa-volume-high"></i>
+              </button>
+            </div>
+            <div class="text-xs text-amber-900 bg-amber-50/90 border border-amber-200 p-2.5 rounded-xl flex items-start gap-2">
+              <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 flex-shrink-0"></i>
+              <div><strong class="font-bold">Mẹo nhớ:</strong> <span id="t-mnemonic">...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="typing-review-summary" class="hidden bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 max-w-xl mx-auto text-center space-y-4 shadow-sm">
+          <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+            <i class="fa-solid fa-flag-checkered"></i>
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold text-slate-900">Hoàn Thành Luyện Gõ!</h3>
+          <p class="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">Tiến độ đã được tự động đồng bộ lên Google Sheets.</p>
+          <button onclick="setTypingFilter('all')" class="px-5 py-3 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md touch-press">
+            Làm Lại Vòng Mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Tra Cứu Subtab -->
+      <div id="view-dtab4" class="hidden space-y-3.5">
+        <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <input type="text" id="daily-dir-search" onkeyup="filterDailyDirectory()" placeholder="Tìm từ tiếng Anh, tiếng Việt..." class="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="daily-directory-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- MODULE 2: SỔ TAY TỪ VỰNG -->
+    <div id="module-notebook" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+            Cloud Notebook
+          </span>
+          <h2 class="text-base sm:text-xl font-extrabold text-slate-900 mt-1">Sổ Tay Quản Lý Từ Vựng</h2>
+        </div>
+
+        <div class="flex p-1 bg-slate-100 rounded-2xl gap-1">
+          <button onclick="switchNotebookTier('all')" id="btn-ntier-all" class="ntier-btn flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl bg-white text-indigo-700 shadow-xs touch-press">
+            Tất Cả (<span id="ntier-count-all">0</span>)
+          </button>
+          <button onclick="switchNotebookTier('learned')" id="btn-ntier-learned" class="ntier-btn flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl text-slate-600 touch-press">
+            Đã Học (<span id="ntier-count-learned">0</span>)
+          </button>
+          <button onclick="switchNotebookTier('hard')" id="btn-ntier-hard" class="ntier-btn flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl text-rose-700 touch-press">
+            Từ Khó ⭐ (<span id="ntier-count-hard">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+        <div class="relative w-full">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <input type="text" id="notebook-search-input" onkeyup="filterNotebookGrid()" placeholder="Tìm kiếm từ vựng..." class="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="notebook-cards-grid"></div>
+    </div>
+
+    <!-- MODULE 3: MINI GAME -->
+    <div id="module-minigame" class="hidden space-y-4">
+      <div id="minigame-setup-view" class="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto space-y-5 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center mx-auto text-2xl shadow-md">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <div>
+          <h2 class="text-lg sm:text-xl font-extrabold text-slate-900">Mini Game: Phản Xạ Gõ Phím</h2>
+          <p class="text-xs text-slate-500 mt-1">Luyện tập tốc độ với dữ liệu đồng bộ từ Google Sheets.</p>
+        </div>
+        <button onclick="launchMiniGameSprint()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm shadow-md touch-press">
+          <i class="fa-solid fa-play"></i> Bắt Đầu Thử Thách
+        </button>
+      </div>
+
+      <div id="minigame-play-view" class="hidden bg-white p-4 sm:p-6 rounded-3xl border-2 border-purple-300 shadow-xl max-w-lg mx-auto space-y-3.5">
+        <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+          <span class="font-mono font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800" id="mg-counter">1 / 10</span>
+          <button onclick="quitMiniGame()" class="text-slate-400 text-xs font-semibold"><i class="fa-solid fa-xmark"></i> Thoát</button>
+        </div>
+        <div class="text-center space-y-2">
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900" id="mg-vietnamese">...</h3>
+          <p class="text-xs text-slate-600 italic" id="mg-desc-en">...</p>
+        </div>
+        <div class="relative">
+          <input type="text" id="mg-input" oninput="handleMiniGameTyping(this.value)" onkeydown="handleMiniGameKeyDown(event)" placeholder="Gõ từ tiếng Anh..." class="w-full text-center text-lg font-mono font-bold py-3 px-4 border-2 border-slate-300 rounded-2xl focus:border-purple-600 outline-none">
+        </div>
+      </div>
+
+      <div id="minigame-summary-view" class="hidden bg-white p-6 rounded-3xl border border-slate-200 max-w-lg mx-auto text-center space-y-4">
+        <h3 class="text-xl font-extrabold text-slate-900">Hoàn Thành Thử Thách!</h3>
+        <button onclick="quitMiniGame()" class="px-5 py-3 rounded-xl bg-purple-600 text-white font-bold text-xs touch-press">Quay Lại Cài Đặt</button>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1.5 flex items-center justify-around shadow-lg" style="padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));">
+    <button onclick="switchMainView('daily')" id="bnav-daily" class="flex-1 py-1 flex flex-col items-center gap-0.5 text-indigo-600 touch-press">
+      <i class="fa-solid fa-calendar-day text-base"></i>
+      <span class="text-[10px] font-extrabold">Bài Học</span>
+    </button>
+    <button onclick="switchMainView('notebook')" id="bnav-notebook" class="flex-1 py-1 flex flex-col items-center gap-0.5 text-slate-400 touch-press">
+      <i class="fa-solid fa-book-bookmark text-base"></i>
+      <span class="text-[10px] font-bold">Sổ Tay</span>
+    </button>
+    <button onclick="switchMainView('minigame')" id="bnav-minigame" class="flex-1 py-1 flex flex-col items-center gap-0.5 text-slate-400 touch-press">
+      <i class="fa-solid fa-bolt text-base"></i>
+      <span class="text-[10px] font-bold">Mini Game</span>
+    </button>
+  </nav>
+
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxsEsZJG7hzsBntLO00yuXjj2xsYQhmCVrViFad7kDMdg5LPrDp-giyXurZdQ_NjO1e/exec"; 
+    const CURRENT_USER_EMAIL = "minhtrung206@gmail.com";
+
+    let masterVocab = [];
+    let learnedWordsSet = new Set();
+    let hardWordsSet = new Set();
+
+    async function fetchUserDataFromCloud() {
+      const overlay = document.getElementById('loading-overlay');
+      overlay.classList.remove('hidden');
+      
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?email=${encodeURIComponent(CURRENT_USER_EMAIL)}`);
+        const data = await res.json();
+        
+        if (data.status === "success") {
+          masterVocab = data.vocab || [];
+          learnedWordsSet.clear();
+          hardWordsSet.clear();
+          
+          for (const [wordId, prog] of Object.entries(data.progress || {})) {
+            const idNum = parseInt(wordId);
+            if (prog.isLearned) learnedWordsSet.add(idNum);
+            if (prog.isHard) hardWordsSet.add(idNum);
+          }
+
+          if (Object.keys(data.progress || {}).length === 0 && masterVocab.length > 0) {
+            masterVocab.forEach(w => learnedWordsSet.add(parseInt(w.id)));
+          }
+
+          document.getElementById('sync-status-text').textContent = "Đã đồng bộ Google Sheets thành công";
+          
+          updateGlobalCounters();
+          updateFlashcardUI(false);
+          generateQuizQuestions();
+          renderQuiz();
+          updateTypingCardUI();
+          renderDailyDirectory();
+          renderNotebookCards();
+        }
+      } catch (e) {
+        console.error("Lỗi kết nối Google Sheets:", e);
+        document.getElementById('sync-status-text').textContent = "Lỗi kết nối Cloud (Chế độ ngoại tuyến)";
+      } finally {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    async function syncProgressToCloud(wordId, isLearned, isHard) {
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: CURRENT_USER_EMAIL,
+            wordId: wordId,
+            isLearned: isLearned,
+            isHard: isHard
+          })
+        });
+      } catch (e) {
+        console.error("Lỗi đồng bộ tiến độ:", e);
+      }
+    }
+
+    function triggerHaptic(pattern = 15) {
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(pattern); } catch (e) {}
+      }
+    }
+
+    function scrollTypingIntoView() {
+      setTimeout(() => {
+        const anchor = document.getElementById('typing-prompt-anchor');
+        if (anchor && window.innerWidth < 768) {
+          anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 250);
+    }
+
+    function updateGlobalCounters() {
+      document.getElementById('top-learned-count').textContent = learnedWordsSet.size;
+      document.getElementById('top-hard-count').textContent = hardWordsSet.size;
+      
+      document.getElementById('ntier-count-all').textContent = masterVocab.length;
+      document.getElementById('ntier-count-learned').textContent = learnedWordsSet.size;
+      document.getElementById('ntier-count-hard').textContent = hardWordsSet.size;
+    }
+
+    function switchMainView(moduleName) {
+      triggerHaptic(10);
+      document.querySelectorAll('.nav-module-btn').forEach(btn => {
+        btn.classList.remove('border-indigo-600', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-slate-500');
+      });
+      document.getElementById(`btn-nav-${moduleName}`)?.classList.add('border-indigo-600', 'text-indigo-600');
+
+      ['daily', 'notebook', 'minigame'].forEach(m => {
+        const bBtn = document.getElementById(`bnav-${m}`);
+        if (bBtn) {
+          bBtn.className = m === moduleName ? "flex-1 py-1 flex flex-col items-center gap-0.5 text-indigo-600 touch-press" : "flex-1 py-1 flex flex-col items-center gap-0.5 text-slate-400 touch-press";
+        }
+      });
+
+      document.getElementById('module-daily').classList.add('hidden');
+      document.getElementById('module-notebook').classList.add('hidden');
+      document.getElementById('module-minigame').classList.add('hidden');
+      document.getElementById(`module-${moduleName}`).classList.remove('hidden');
+
+      if (moduleName === 'notebook') renderNotebookCards();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function switchDailySubTab(subTabId) {
+      triggerHaptic(10);
+      document.querySelectorAll('.dtab-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-xs');
+        btn.classList.add('text-slate-600');
+      });
+      document.getElementById(`btn-${subTabId}`).classList.add('bg-white', 'text-indigo-600', 'shadow-xs');
+      document.getElementById(`btn-${subTabId}`).classList.remove('text-slate-600');
+
+      ['dtab1', 'dtab2', 'dtab3', 'dtab4'].forEach(id => {
+        document.getElementById(`view-${id}`).classList.add('hidden');
+      });
+      document.getElementById(`view-${subTabId}`).classList.remove('hidden');
+      if (subTabId === 'dtab3') setTimeout(() => document.getElementById('t-input')?.focus(), 80);
+    }
+
+    let currentFcIndex = 0;
+    let isFcAutoAudio = true;
+
+    function updateFlashcardUI(triggerAudio = true) {
+      if (masterVocab.length === 0) return;
+      const item = masterVocab[currentFcIndex];
+      const card = document.getElementById('flashcard');
+      card.classList.remove('rotate-y-180');
+
+      document.getElementById('fc-id').textContent = `#${item.id}`;
+      document.getElementById('fc-category').textContent = item.cat || "Chung";
+      document.getElementById('fc-word').textContent = item.word;
+      document.getElementById('fc-phonetic').textContent = item.phonetic;
+      document.getElementById('fc-pos').textContent = `(${item.pos})`;
+      document.getElementById('fc-front-desc').textContent = item.descEn;
+
+      document.getElementById('fc-back-word').textContent = item.word;
+      document.getElementById('fc-vi').textContent = item.vi;
+      document.getElementById('fc-desc').textContent = item.desc;
+      document.getElementById('fc-tip').textContent = item.tip;
+      document.getElementById('fc-index-info').textContent = `Thẻ ${currentFcIndex + 1} / ${masterVocab.length}`;
+
+      updateFlashcardStarUI();
+      if (triggerAudio && isFcAutoAudio) speakCurrentFlashcard();
+    }
+
+    function toggleHardWord(id, event) {
+      if (event) event.stopPropagation();
+      triggerHaptic(15);
+      
+      let isHardNow = false;
+      if (hardWordsSet.has(id)) {
+        hardWordsSet.delete(id);
+        isHardNow = false;
+      } else {
+        hardWordsSet.add(id);
+        isHardNow = true;
+      }
+
+      syncProgressToCloud(id, learnedWordsSet.has(id), isHardNow);
+      updateGlobalCounters();
+      renderNotebookCards();
+      updateFlashcardStarUI();
+    }
+
+    function toggleHardFromFlashcard(e) {
+      e.stopPropagation();
+      const item = masterVocab[currentFcIndex];
+      if (item) toggleHardWord(parseInt(item.id));
+    }
+
+    function updateFlashcardStarUI() {
+      const item = masterVocab[currentFcIndex];
+      const starBtn = document.getElementById('fc-star-btn');
+      if (!item || !starBtn) return;
+      if (hardWordsSet.has(parseInt(item.id))) {
+        starBtn.className = "w-7 h-7 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center text-xs touch-press";
+      } else {
+        starBtn.className = "w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs touch-press";
+      }
+    }
+
+    function toggleFcAutoAudio() {
+      isFcAutoAudio = !isFcAutoAudio;
+      document.getElementById('label-fc-sound').textContent = isFcAutoAudio ? "BẬT" : "TẮT";
+    }
+
+    function speakCurrentFlashcard() {
+      const word = masterVocab[currentFcIndex]?.word;
+      if (word) playAudio(word);
+    }
+
+    function flipCard() {
+      triggerHaptic(12);
+      document.getElementById('flashcard').classList.toggle('rotate-y-180');
+    }
+
+    function nextCard() {
+      triggerHaptic(15);
+      currentFcIndex = (currentFcIndex + 1) % masterVocab.length;
+      updateFlashcardUI(true);
+    }
+
+    function prevCard() {
+      triggerHaptic(15);
+      currentFcIndex = (currentFcIndex - 1 + masterVocab.length) % masterVocab.length;
+      updateFlashcardUI(true);
+    }
+
+    function shuffleCards() {
+      masterVocab.sort(() => Math.random() - 0.5);
+      currentFcIndex = 0;
+      updateFlashcardUI(true);
+    }
+
+    function speakWord(e) {
+      if (e) e.stopPropagation();
+      speakCurrentFlashcard();
+    }
+
+    let quizQuestions = [];
+    let quizAnswers = {};
+
+    function generateQuizQuestions() {
+      if (masterVocab.length === 0) return;
+      quizQuestions = masterVocab.map((item) => {
+        const others = masterVocab.filter(w => w.id !== item.id);
+        const distractors = others.sort(() => 0.5 - Math.random()).slice(0, 3).map(w => w.word);
+        const options = [...distractors, item.word].sort(() => 0.5 - Math.random());
+        return {
+          id: item.id,
+          targetWord: item.word,
+          vi: item.vi,
+          options: options,
+          correctAnswer: options.indexOf(item.word)
+        };
+      });
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+      quizQuestions.slice(0, 20).forEach((q, qIdx) => {
+        const isAnswered = quizAnswers[qIdx] !== undefined;
+        const selectedIdx = quizAnswers[qIdx];
+
+        let optionsHTML = '';
+        q.options.forEach((opt, optIdx) => {
+          let btnStyle = "border-slate-200 bg-slate-50 text-slate-700";
+          if (isAnswered) {
+            if (optIdx === q.correctAnswer) btnStyle = "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold";
+            else if (optIdx === selectedIdx) btnStyle = "border-rose-400 bg-rose-50 text-rose-900 font-bold";
+            else btnStyle = "opacity-50";
+          }
+          optionsHTML += `<button ${isAnswered ? 'disabled' : ''} onclick="handleSelectQuizAnswer(${qIdx}, ${optIdx})" class="w-full text-left p-2.5 rounded-xl border ${btnStyle} text-xs font-semibold">${opt}</button>`;
+        });
+
+        const card = document.createElement('div');
+        card.className = "p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2";
+        card.innerHTML = `<h4 class="text-xs font-bold">Từ tiếng Anh nghĩa: "${q.vi}"?</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">${optionsHTML}</div>`;
+        container.appendChild(card);
+      });
+    }
+
+    function handleSelectQuizAnswer(qIdx, optIdx) {
+      if (quizAnswers[qIdx] !== undefined) return;
+      quizAnswers[qIdx] = optIdx;
+      if (optIdx === quizQuestions[qIdx].correctAnswer) triggerHaptic(20);
+      else triggerHaptic([30, 50, 30]);
+      renderQuiz();
+    }
+
+    function resetQuiz() {
+      quizAnswers = {};
+      generateQuizQuestions();
+      renderQuiz();
+    }
+
+    let currentTypingIndex = 0;
+
+    function updateTypingCardUI() {
+      if (masterVocab.length === 0) return;
+      const item = masterVocab[currentTypingIndex];
+
+      document.getElementById('t-counter').textContent = `Từ ${currentTypingIndex + 1} / ${masterVocab.length}`;
+      document.getElementById('t-vietnamese').textContent = item.vi;
+      document.getElementById('t-desc-en').textContent = item.descEn;
+      document.getElementById('t-visual-desc').textContent = item.desc;
+      document.getElementById('t-target-word').textContent = item.word;
+      document.getElementById('t-phonetic').textContent = item.phonetic;
+      document.getElementById('t-mnemonic').textContent = item.tip;
+
+      const inputEl = document.getElementById('t-input');
+      inputEl.value = '';
+      inputEl.className = "w-full text-center text-lg font-mono font-bold py-3 px-4 border-2 border-slate-300 rounded-2xl focus:border-purple-600 outline-none";
+      document.getElementById('t-detail-card').classList.add('hidden');
+      document.getElementById('btn-mobile-next').classList.add('hidden');
+      document.getElementById('t-char-count').textContent = `${item.word.length} ký tự`;
+      inputEl.focus();
+    }
+
+    function handleTyping(val) {
+      if (masterVocab.length === 0) return;
+      const item = masterVocab[currentTypingIndex];
+      const cleanInput = val.trim().toLowerCase();
+      const target = item.word.toLowerCase();
+      const inputEl = document.getElementById('t-input');
+
+      if (cleanInput === target) {
+        learnedWordsSet.add(parseInt(item.id));
+        syncProgressToCloud(parseInt(item.id), true, hardWordsSet.has(parseInt(item.id)));
+        
+        inputEl.className = "w-full text-center text-lg font-mono font-bold py-3 px-4 border-2 border-emerald-500 bg-emerald-50 rounded-2xl outline-none";
+        document.getElementById('t-detail-card').classList.remove('hidden');
+        document.getElementById('btn-mobile-next').classList.remove('hidden');
+        document.getElementById('btn-mobile-next').classList.add('flex');
+        playAudio(item.word);
+        updateGlobalCounters();
+      }
+    }
+
+    function handleTypingKeyDown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleMobileEnterAction();
+      }
+    }
+
+    function handleMobileEnterAction() {
+      if (currentTypingIndex < masterVocab.length - 1) {
+        currentTypingIndex++;
+        updateTypingCardUI();
+      } else {
+        document.getElementById('typing-box-container').classList.add('hidden');
+        document.getElementById('typing-review-summary').classList.remove('hidden');
+      }
+    }
+
+    function nextTypingWord() { handleMobileEnterAction(); }
+    function prevTypingWord() {
+      if (currentTypingIndex > 0) { currentTypingIndex--; updateTypingCardUI(); }
+    }
+    function speakTypingWord() {
+      playAudio(masterVocab[currentTypingIndex]?.word);
+    }
+    function revealTypingHint() {
+      const item = masterVocab[currentTypingIndex];
+      document.getElementById('t-hint').textContent = `Gợi ý: ${item.word[0]}... (${item.word.length} chữ)`;
+      document.getElementById('t-hint').classList.remove('hidden');
+    }
+
+    let currentNotebookTier = 'all';
+
+    function switchNotebookTier(tier) {
+      currentNotebookTier = tier;
+      renderNotebookCards();
+    }
+
+    function renderNotebookCards() {
+      const grid = document.getElementById('notebook-cards-grid');
+      grid.innerHTML = '';
+      let list = masterVocab;
+
+      if (currentNotebookTier === 'learned') {
+        list = list.filter(w => learnedWordsSet.has(parseInt(w.id)));
+      } else if (currentNotebookTier === 'hard') {
+        list = list.filter(w => hardWordsSet.has(parseInt(w.id)));
+      }
+
+      list.forEach(item => {
+        const isHard = hardWordsSet.has(parseInt(item.id));
+        const card = document.createElement('div');
+        card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 space-y-2";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <strong class="text-sm font-bold">${item.word} (${item.phonetic})</strong>
+            <button onclick="toggleHardWord(${item.id}, event)" class="w-7 h-7 rounded-lg ${isHard ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center text-xs">
+              <i class="fa-solid fa-star"></i>
+            </button>
+          </div>
+          <div class="text-xs"><strong>Nghĩa:</strong> ${item.vi}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderDailyDirectory() {
+      const grid = document.getElementById('daily-directory-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      masterVocab.forEach(item => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 text-xs space-y-1";
+        card.innerHTML = `<strong>${item.word}</strong> - ${item.vi} (${item.phonetic})`;
+        grid.appendChild(card);
+      });
+    }
+
+    function filterDailyDirectory() {}
+    function filterNotebookGrid() {}
+
+    function launchMiniGameSprint() {
+      document.getElementById('minigame-setup-view').classList.add('hidden');
+      document.getElementById('minigame-play-view').classList.remove('hidden');
+      renderMiniGameWord();
+    }
+    function renderMiniGameWord() {
+      const item = masterVocab[Math.floor(Math.random() * masterVocab.length)];
+      document.getElementById('mg-vietnamese').textContent = item.vi;
+      document.getElementById('mg-desc-en').textContent = item.descEn;
+      document.getElementById('mg-input').value = '';
+      document.getElementById('mg-input').focus();
+    }
+    function handleMiniGameTyping(val) {
+      if (val.trim().toLowerCase() === masterVocab[0].word.toLowerCase()) {
+        document.getElementById('minigame-play-view').classList.add('hidden');
+        document.getElementById('minigame-summary-view').classList.remove('hidden');
+      }
+    }
+    function handleMiniGameKeyDown(e) {}
+    function quitMiniGame() {
+      document.getElementById('minigame-play-view').classList.add('hidden');
+      document.getElementById('minigame-summary-view').classList.add('hidden');
+      document.getElementById('minigame-setup-view').classList.remove('hidden');
+    }
+
+    function playAudio(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'en-US';
+        utter.rate = 0.85;
+        window.speechSynthesis.speak(utter);
+      }
+    }
+
+    window.onload = () => {
+      fetchUserDataFromCloud();
+    };
+  </script>
+</body>
+</html>
